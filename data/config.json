@@ -1,0 +1,26 @@
+{
+  "keywords": [
+    "ps5",
+    "playstation",
+    "rtx",
+    "air fryer",
+    "monitor",
+    "placa de video",
+    "ssd",
+    "nintendo switch",
+    "smartwatch",
+    "placa de vídeo"
+  ],
+  "excludedWords": [
+    "usado",
+    "defeito",
+    "recondicionado",
+    "capinha",
+    "pelicula",
+    "troca"
+  ],
+  "maxPriceLimit": 0,
+  "telegramEnabled": true,
+  "onlyGroups": true,
+  "monitoredGroups": []
+}

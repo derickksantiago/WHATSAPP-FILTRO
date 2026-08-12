@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Filtro de Promoções WhatsApp 24/7</title>
+  
+  <!-- Google Fonts & Font Awesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- CSS Principal -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- QRCode.js para renderização no navegador -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Socket.io Client -->
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+  <!-- Top Navbar / Header -->
+  <header class="navbar">
+    <div class="logo-container">
+      <div class="logo-icon">
+        <i class="fa-brands me-2 fa-whatsapp"></i>
+      </div>
+      <div>
+        <h1 class="logo-title">Filtro de Ofertas WhatsApp</h1>
+        <span class="logo-subtitle">Automação 24/7 de Grupos & Notificações</span>
+      </div>
+    </div>
+
+    <!-- Status do Conexão do WhatsApp -->
+    <div class="connection-status-pill" id="statusPill">
+      <span class="status-dot yellow" id="statusDot"></span>
+      <span id="statusText">Inicializando...</span>
+    </div>
+  </header>
+
+  <div class="main-container">
+    
+    <!-- Sidebar de Configurações e Estatísticas -->
+    <aside class="sidebar">
+      
+      <!-- Card do QR Code / Status da Conexão -->
+      <div class="card qr-card" id="qrCard">
+        <div class="card-header">
+          <h3><i class="fa-solid fa-qrcode"></i> Conexão WhatsApp Web</h3>
+        </div>
+        <div class="card-body text-center">
+          <div id="qrContainer" class="qr-container">
+            <div class="qr-placeholder">
+              <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+              <p>Aguardando QR Code...</p>
+            </div>
+          </div>
+          <p class="qr-instructions" id="qrInstructions">
+            Abra o WhatsApp no celular &gt; <b>Aparelhos Conectados</b> &gt; <b>Conectar Aparelho</b> e escaneie o código acima.
+          </p>
+        </div>
+      </div>
+
+      <!-- Card de Estatísticas -->
+      <div class="card stats-card">
+        <div class="card-header">
+          <h3><i class="fa-solid fa-chart-line"></i> Estatísticas 24h</h3>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-box">
+            <span class="stat-value" id="statProcessed">0</span>
+            <span class="stat-label">Mensagens Lidas</span>
+          </div>
+          <div class="stat-box highlight">
+            <span class="stat-value" id="statDeals">0</span>
+            <span class="stat-label">Ofertas Filtradas</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Painel de Gerenciamento de Palavras-Chave de Interesse -->
+      <div class="card keywords-card">
+        <div class="card-header">
+          <h3><i class="fa-solid fa-filter"></i> Produtos de Interesse</h3>
+        </div>
+        <div class="card-body">
+          <form id="addKeywordForm" class="input-group">
+            <input type="text" id="newKeywordInput" placeholder="Ex: iphone, ps5, rtx..." required>
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i></button>
+          </form>
+          <div class="tags-container" id="keywordsTags">
+            <!-- Tags serão inseridas via JavaScript -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Painel de Palavras a Ignorar (Excluir) -->
+      <div class="card excluded-card">
+        <div class="card-header">
+          <h3><i class="fa-solid fa-ban"></i> Ignorar / Excluir</h3>
+        </div>
+        <div class="card-body">
+          <form id="addExcludedForm" class="input-group">
+            <input type="text" id="newExcludedInput" placeholder="Ex: usado, capinha..." required>
+            <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-plus"></i></button>
+          </form>
+          <div class="tags-container excluded" id="excludedTags">
+            <!-- Tags ignoradas via JavaScript -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Configurações Adicionais & Telegram -->
+      <div class="card settings-card">
+        <div class="card-header">
+          <h3><i class="fa-solid fa-gear"></i> Notificações & Regras</h3>
+        </div>
+        <div class="card-body">
+          
+          <div class="setting-item">
+            <label for="maxPriceInput">Preço Máximo (R$):</label>
+            <input type="number" id="maxPriceInput" placeholder="0 = Sem limite" min="0" step="50">
+          </div>
+
+          <div class="setting-item switch-item">
+            <span>Notificar via Telegram</span>
+            <label class="switch">
+              <input type="checkbox" id="telegramToggle" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="setting-item switch-item">
+            <span>Apenas Grupos</span>
+            <label class="switch">
+              <input type="checkbox" id="onlyGroupsToggle" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <button id="testTelegramBtn" class="btn btn-telegram w-100 mt-2">
+            <i class="fa-brands fa-telegram"></i> Testar Notificação Telegram
+          </button>
+          <div id="telegramStatusMsg" class="status-msg"></div>
+
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- Área Principal de Feed de Promoções Filtradas -->
+    <main class="content-area">
+      
+      <!-- Barra Superior do Feed -->
+      <div class="feed-header">
+        <div class="feed-title">
+          <h2><i class="fa-solid fa-bolt text-warning"></i> Feed de Ofertas Filtradas</h2>
+          <span class="feed-count-badge" id="dealCountBadge">0 Ofertas</span>
+        </div>
+        <div class="feed-actions">
+          <button id="simulateBtn" class="btn btn-outline">
+            <i class="fa-solid fa-flask"></i> Simular Mensagem
+          </button>
+          <button id="clearDealsBtn" class="btn btn-danger-outline">
+            <i class="fa-solid fa-trash"></i> Limpar Historico
+          </button>
+        </div>
+      </div>
+
+      <!-- Lista de Cards de Promoções -->
+      <div class="deals-feed" id="dealsFeed">
+        <div class="empty-feed" id="emptyFeed">
+          <div class="empty-icon"><i class="fa-solid fa-tags"></i></div>
+          <h3>Nenhuma oferta filtrada ainda</h3>
+          <p>Assim que chegarem mensagens nos seus grupos de promoções do WhatsApp com as palavras-chave cadastradas, elas aparecerão aqui e no seu Telegram automaticamente!</p>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Modal de Simulação de Mensagem -->
+  <div class="modal-overlay" id="simulateModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-flask"></i> Testar Filtro com Mensagem de Exemplo</h3>
+        <button class="modal-close" id="closeModalBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Cole o texto de uma promoção de WhatsApp para ver se o seu filtro irá capturá-la:</p>
+        <textarea id="simulateText" rows="6" placeholder="Ex: 🔥 SUPER PROMOÇÃO!\nPlaystation 5 825GB\nPor apenas R$ 3.499,00 à vista na Amazon\nLink: https://amazon.com.br/dp/example"></textarea>
+        <div id="simulateResult" class="simulate-result"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelModalBtn">Cancelar</button>
+        <button class="btn btn-primary" id="runSimulateBtn">Testar Filtro</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
