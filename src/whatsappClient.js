@@ -1,8 +1,29 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcodeTerminal = require('qrcode-terminal');
+const fs = require('fs');
 const storage = require('./storage');
 const filterEngine = require('./filterEngine');
 const telegramBot = require('./telegramBot');
+
+// Detecta o caminho do Chromium automaticamente
+function findChromiumPath() {
+  const candidates = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/snap/bin/chromium',
+  ];
+  for (const p of candidates) {
+    if (p && fs.existsSync(p)) {
+      console.log(`[WhatsApp] Chromium encontrado em: ${p}`);
+      return p;
+    }
+  }
+  console.warn('[WhatsApp] Chromium não encontrado nos caminhos padrão. Usando padrão do Puppeteer.');
+  return undefined;
+}
 
 class WhatsAppManager {
   constructor() {
@@ -27,7 +48,7 @@ class WhatsAppManager {
     this.emitStatus();
 
     const isHeadless = process.env.HEADLESS !== 'false';
-    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
+    const executablePath = findChromiumPath();
 
     const puppeteerConfig = {
       headless: isHeadless,
@@ -38,7 +59,12 @@ class WhatsAppManager {
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
         '--no-zygote',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--disable-software-rasterizer',
+        '--disable-extensions',
+        '--window-size=1280,720',
+        '--hide-scrollbars',
+        '--mute-audio'
       ]
     };
 
@@ -48,7 +74,8 @@ class WhatsAppManager {
 
     this.client = new Client({
       authStrategy: new LocalAuth({
-        clientId: 'whatsapp-deals-session'
+        clientId: 'whatsapp-deals-session',
+        dataPath: '/usr/src/app/.wwebjs_auth'
       }),
       puppeteer: puppeteerConfig
     });
@@ -95,12 +122,7 @@ class WhatsAppManager {
       console.log('[WhatsApp] Cliente desconectado. Motivo:', reason);
       this.status = 'DISCONNECTED';
       this.emitStatus();
-      
-      // Tenta reconectar automaticamente em 5 segundos
-      setTimeout(() => {
-        console.log('[WhatsApp] Tentando reconectar...');
-        this.init();
-      }, 5000);
+      this.retryInit(15000);
     });
 
     // Evento Principal: Mensagem Recebida
@@ -116,10 +138,22 @@ class WhatsAppManager {
       console.error('[WhatsApp] Erro ao inicializar cliente:', err.message);
       this.status = 'DISCONNECTED';
       this.emitStatus();
+      // Tenta novamente em 30 segundos após erro de inicialização
+      this.retryInit(30000);
     });
   }
 
+  retryInit(delayMs = 15000) {
+    if (this._retryTimer) return; // Já existe um retry agendado
+    console.log(`[WhatsApp] Tentando reconectar em ${delayMs / 1000}s...`);
+    this._retryTimer = setTimeout(() => {
+      this._retryTimer = null;
+      this.init();
+    }, delayMs);
+  }
+
   async handleIncomingMessage(message) {
+
     this.stats.messagesProcessed++;
     if (this.io) {
       this.io.emit('stats_update', this.stats);
